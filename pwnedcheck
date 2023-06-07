@@ -1,23 +1,24 @@
 #!/usr/bin/env bash
 #
-# pwnedcheck (#) 1.0.0
+# pwnedcheck (#) 1.0.1
 # Renee Margaret McConahy <nepella@gmail.com>
 #<
 # Usage: pwnedcheck
 #        pwnedcheck -h
 #
 # Commands:
-#   -h    Show help.
+#   -h    Show this help.
 #
 # This reads newline-terminated passwords from STDIN and securely checks each
-# against the Have I Been Pwned database of leaked passwords. For each candidate,
-# it prints a colon-delimited pairing of the password and the number of times it
-# appears in HIBP's database. It returns non-zero if any candidate is matched.
+# against the Have I Been Pwned database of leaked passwords. For each
+# candidate, it prints a colon-delimited pairing of the password and the number
+# of times it appears in HIBP's database. It returns non-zero if any candidate
+# is matched.
 #
 # Security: This computes the SHA-1 hash and sends the first five hexadecimal
 # digits to the API endpoint; the endpoint returns a list of hashes that begin
-# with the specified prefix. Thus, only 20 bits of the 160-bit unsalted SHA-1 hash
-# of each password is disclosed.
+# with the specified prefix. Thus, only 20 bits of the 160-bit unsalted SHA-1
+# hash of each password is disclosed.
 #>
 
 fail() {
@@ -41,28 +42,32 @@ shift $((OPTIND - 1))
 
 type openssl &>/dev/null || quit "Could not find required executable openssl"
 
-found=0
-while read password; do
-    hash=$(echo -n "$password" | openssl dgst -sha1 | sed -e "s/^.* //" -e "y/abcdef/ABCDEF/")
+declare -i found=0
+while read -r password; do
+    hash=$(printf "%s" "$password" | openssl dgst -sha1 |
+               sed -e "s/^.* //" -e "y/abcdef/ABCDEF/")
     [[ $hash =~ ^[0-9A-F]{40}$ ]] || fail "Hash failed: \"$hash\""
 
-    mapfile -t output < <(curl --write-out '\n%{http_code}\n' -s "https://api.pwnedpasswords.com/range/${hash::5}")
+    mapfile -t output < <(curl --disable --silent --write-out \
+        '\n%{http_code}\n' "https://api.pwnedpasswords.com/range/${hash::5}")
     status=${output[-1]}
-    if [[ $status != 200 ]]; then
-        fail "Got HTTP $status"
-    fi
+    [[ $status == 200 ]] || fail "Got HTTP $status"
     unset 'output[${#output[@]}-1]'
 
-    ((${#output[@]} < 100)) && echo "Warning: We only got ${#output[@]} hashes; on average, we have 477." >&2
+    ((${#output[@]} < 100)) &&
+        echo "Warning: We only got ${#output[@]} hashes." >&2
     for entry in "${output[@]}"; do
-        if [[ $entry =~ "${hash:5}" ]]; then
+        # Each entry is a colon-delimited list whose first element is the SHA-1
+        # hash with the first five hexidecimal digits omitted and whose second
+        # element is the number of matches.
+        if [[ ${entry%%:*} == "${hash:5}" ]]; then
             found=1
-            echo "$password:${entry##*:}"
+            printf "%s:%s\\n" "$password" "${entry##*:}"
             continue 2
         fi
     done
 
-    echo "$password:0"
+    printf "%s:0\\n" "$password"
 done
 
 exit $found

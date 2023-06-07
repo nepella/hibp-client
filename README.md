@@ -6,19 +6,21 @@
 
 To reduce the potential for nefarious uses, HIBP provides the breached passwords as unsalted SHA-1 hashes.[3] The list [can be downloaded](<https://haveibeenpwned.com/Passwords>) (9 GiB), queried by an API, or accessed with a Web front-end that uses the same API. Using the API does not compromise a queried password: a client computes the SHA-1 hash and sends the first 5 hexadecimal digits (20 bits) to the API endpoint; the endpoint returns a list of hashes that begin with the specified prefix. Thus, only 20 bits of the 160-bit unsalted SHA-1 hash of the password is disclosed.[4]
 
-## pwnedcheck
+## Pwnedcheck
 
-pwnedcheck is a humble front-end to HIBP's password API. It reads newline-terminated passwords from STDIN and checks each against the API, printing a colon-delimited pairing of the password and the number of times it appears in HIBP's database. It returns non-zero if any candidate is matched.
+Pwnedcheck is a humble front-end to HIBP's password API. It reads newline-terminated passwords from STDIN and checks each against the API, printing a colon-delimited pairing of the password and the number of times it appears in HIBP's database. It returns non-zero if any candidate is matched.
 
 ### Example usage
 
-    nepeta@garden:hibp-client $ echo -e 'pa$$w0rd7\nbunnybunnybunny\nqelhajminq' | ./pwnedcheck
-    pa$$w0rd7:12
-    bunnybunnybunny:20
-    qelhajminq:0
+```sh
+nepeta@garden:hibp-client $ printf "%s\\n" 'pa$$w0rd7' 'bunnybunnybunny' 'qelhajminq' | ./pwnedcheck
+pa$$w0rd7:18
+bunnybunnybunny:40
+qelhajminq:0
 
-    nepeta@garden:hibp-client $ echo "PassW0rd!" | ./pwnedcheck >/dev/null || echo "The password is compromised."
-    The password is compromised.
+nepeta@garden:hibp-client $ echo "PassW0rd!" | ./pwnedcheck >/dev/null || echo "The password is compromised."
+The password is compromised.
+```
 
 ## Footnotes
 
